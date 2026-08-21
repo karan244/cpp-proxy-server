@@ -1,0 +1,14 @@
+# CMake and Build Artifacts
+build/
+CMakeCache.txt
+CMakeFiles/
+Makefile
+cmake_install.cmake
+
+# Logs
+*.log
+proxy.log
+
+# IDEs and OS files
+.vscode/
+.DS_Store
