@@ -11,13 +11,13 @@ It supports both standard HTTP proxying and secure HTTPS tunneling via the `CONN
 
 ```mermaid
 graph TD
-    Client1[Client 1] --> |HTTP/HTTPS| Listener[Proxy Listener :8080]
-    Client2[Client 2] --> |HTTP/HTTPS| Listener
+    Client1[Client 1] -->|HTTP/HTTPS| Listener[Proxy Listener :8080]
+    Client2[Client 2] -->|HTTP/HTTPS| Listener
     
     subgraph Proxy Server
-        Listener --> |accept()| TaskQueue[Task Queue]
+        Listener -->|Accept Connection| TaskQueue[Task Queue]
         
-        TaskQueue --> |Condition Variable| ThreadPool[Fixed-Size POSIX Thread Pool]
+        TaskQueue -->|Condition Variable| ThreadPool[Fixed-Size POSIX Thread Pool]
         
         ThreadPool --> Worker1[Worker Thread 1]
         ThreadPool --> Worker2[Worker Thread 2]
@@ -30,7 +30,7 @@ graph TD
         AccessControl -->|Blocked| BlockList[config/blocklist.conf]
     end
     
-    DestTCP --> |Bidirectional poll()| DestServer[Destination Web Server]
+    DestTCP -->|Bidirectional Forwarding| DestServer[Destination Web Server]
 ```
 
 ## How It Works
