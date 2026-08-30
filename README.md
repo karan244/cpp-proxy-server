@@ -1,11 +1,16 @@
 # Multithreaded C++ Proxy Server
 
+![C++17](https://img.shields.io/badge/C%2B%2B-17-blue.svg)
+![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)
+![POSIX](https://img.shields.io/badge/POSIX-Sockets%20%7C%20pthreads-orange.svg)
+![License](https://img.shields.io/badge/license-MIT-green.svg)
+
 A lightweight, high-performance HTTP/HTTPS proxy server written in C++17 from scratch. This project was built to demonstrate a deep understanding of POSIX systems programming, multithreading, and low-level TCP/IP networking without relying on heavy external frameworks like Boost.Asio.
 
 ## Project Overview
 This proxy server sits between a client (like a web browser or `curl`) and a destination server. It accepts incoming TCP connections, parses the HTTP requests to determine the destination, establishes an outbound connection, and safely forwards raw bytes back and forth. 
 
-It supports both standard HTTP proxying and secure HTTPS tunneling via the `CONNECT` method, and is protected by a thread-safe custom firewall ruleset.
+It supports both standard HTTP proxying and secure HTTPS tunneling via the `CONNECT` method, and is protected by a thread-safe custom firewall ruleset with graceful signal handling (`SIGINT`, `SIGTERM`, `SIGPIPE`).
 
 ## Architecture
 
@@ -72,28 +77,46 @@ BLOCK_HOST badsite.com
 BLOCK_METHOD POST
 ```
 
-## Testing Instructions
+## Testing & Verification
+ 
+### 1. Automated Unit Test Suite
+The project includes a built-in automated test suite covering HTTP parsing (relative/absolute paths, CONNECT, malformed queries) and Access-Control validation.
+```bash
+# Run unit test suite
+./run_tests
 
-**1. Start the server:**
+# Or run via CTest
+ctest --output-on-failure
+```
+
+### 2. Manual End-to-End Tests
+**Start the server:**
 ```bash
 ./proxy_server
 ```
 
-**2. Test HTTP (Allowed):**
+**Test HTTP (Allowed):**
 ```bash
 curl -v -x http://127.0.0.1:8080 http://example.com/
 ```
 
-**3. Test HTTPS Tunneling (Allowed):**
+**Test HTTPS Tunneling (Allowed):**
 ```bash
 curl -v -x http://127.0.0.1:8080 https://google.com/
 ```
 
-**4. Test Blocklist:**
+**Test Blocklist:**
 ```bash
 # Assuming testsite.com is in blocklist.conf
 curl -x http://127.0.0.1:8080 http://testsite.com/
 ```
+
+### 3. Graceful Shutdown & Signal Handling
+The server registers handlers for `SIGINT` (Ctrl+C) and `SIGTERM`. When signaled, it initiates an orderly shutdown:
+- Stops the listener socket to reject new connections.
+- Joins all active threads in the thread pool cleanly.
+- Flushes all pending log buffers to `proxy.log`.
+- Automatically ignores `SIGPIPE` to protect against client disconnection crashes.
 
 ## Debugging and Optimization
 

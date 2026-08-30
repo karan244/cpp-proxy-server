@@ -1,0 +1,36 @@
+name: C++ CI Build and Test
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Install Build Dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y cmake g++ valgrind apache2-utils
+
+    - name: Configure CMake (Debug Mode)
+      run: |
+        cmake -B build -DCMAKE_BUILD_TYPE=Debug
+
+    - name: Build Proxy Server and Test Suite
+      run: |
+        cmake --build build --config Debug
+
+    - name: Run Unit Tests
+      run: |
+        cd build && ./run_tests
+
+    - name: Run Valgrind Leak Check on Test Suite
+      run: |
+        valgrind --leak-check=full --error-exitcode=1 ./build/run_tests
