@@ -3,6 +3,7 @@
 
 #include <string>
 #include <memory>
+#include <atomic>
 #include "thread_pool.hpp"
 #include "access_control.hpp"
 
@@ -14,9 +15,13 @@ public:
     // Start the server to listen and accept connections
     void run();
 
+    // Gracefully stop the server
+    void stop();
+
 private:
     int port_;
     int server_fd_; // File descriptor for the listening socket
+    std::atomic<bool> is_running_{false};
     
     // The thread pool for handling client connections concurrently
     std::unique_ptr<ThreadPool> thread_pool_;

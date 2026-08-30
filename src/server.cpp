@@ -19,8 +19,16 @@ Server::Server(int port) : port_(port), server_fd_(-1) {
 }
 
 Server::~Server() {
-    if (server_fd_ != -1) {
-        close(server_fd_);
+    stop();
+}
+
+void Server::stop() {
+    if (is_running_.exchange(false)) {
+        Logger::log("Shutting down server...");
+        if (server_fd_ != -1) {
+            close(server_fd_);
+            server_fd_ = -1;
+        }
     }
 }
 
@@ -36,6 +44,7 @@ void Server::run() {
     if (setsockopt(server_fd_, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) < 0) {
         std::cerr << "Failed to set socket options\n";
         close(server_fd_);
+        server_fd_ = -1;
         return;
     }
 
@@ -48,37 +57,60 @@ void Server::run() {
     if (bind(server_fd_, (struct sockaddr*)&server_addr, sizeof(server_addr)) < 0) {
         std::cerr << "Failed to bind to port " << port_ << "\n";
         close(server_fd_);
+        server_fd_ = -1;
         return;
     }
 
     if (listen(server_fd_, 10) < 0) {
         std::cerr << "Failed to listen on socket\n";
         close(server_fd_);
+        server_fd_ = -1;
         return;
     }
 
+    is_running_ = true;
     Logger::log("Server listening on port " + std::to_string(port_) + " with 4 worker threads...");
 
-    // Phase 4: Infinite loop to keep accepting new clients
-    while (true) {
+    // Accept loop with poll timeout for clean shutdown
+    struct pollfd pfd;
+    pfd.fd = server_fd_;
+    pfd.events = POLLIN;
+
+    while (is_running_) {
+        pfd.fd = server_fd_;
+        int poll_res = poll(&pfd, 1, 500); // 500ms timeout to periodically check is_running_
+
+        if (poll_res < 0) {
+            if (errno == EINTR) continue; // Interrupted by signal
+            Logger::log("ERROR: Server poll failed");
+            break;
+        }
+
+        if (poll_res == 0 || !(pfd.revents & POLLIN)) {
+            continue; // Timeout, check is_running_ again
+        }
+
         struct sockaddr_in client_addr;
         socklen_t client_len = sizeof(client_addr);
         
-        // accept() blocks until a new client connects
+        // accept() incoming client connection
         int client_fd = accept(server_fd_, (struct sockaddr*)&client_addr, &client_len);
         if (client_fd < 0) {
-            Logger::log("ERROR: Failed to accept connection");
-            continue; // Don't crash the server, just try accepting the next one
+            if (is_running_) {
+                Logger::log("ERROR: Failed to accept connection");
+            }
+            continue;
         }
 
         std::string client_ip = inet_ntoa(client_addr.sin_addr);
 
-        // Create a lambda task that captures 'this' and the client variables,
-        // and enqueue it into the thread pool.
+        // Enqueue connection handling into thread pool
         thread_pool_->enqueue_task([this, client_fd, client_ip]() {
             this->handle_client(client_fd, client_ip);
         });
     }
+
+    Logger::log("Server run loop exited.");
 }
 
 void Server::handle_client(int client_fd, const std::string& client_ip) {
