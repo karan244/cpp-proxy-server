@@ -24,3 +24,15 @@ add_executable(proxy_server
 file(COPY config DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
 
 target_link_libraries(proxy_server PRIVATE Threads::Threads)
+
+# Unit Testing Support
+enable_testing()
+
+add_executable(run_tests
+    tests/test_suite.cpp
+    src/http_proxy.cpp
+    src/access_control.cpp
+)
+
+target_link_libraries(run_tests PRIVATE Threads::Threads)
+add_test(NAME UnitTests COMMAND run_tests)
